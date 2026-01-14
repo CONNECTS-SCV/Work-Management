@@ -136,7 +136,7 @@ export default function WorkPage() {
             }`}
           >
             <Sparkles className="w-5 h-5 inline-block mr-2" />
-            Claude 자동 파싱
+            AI 업무 파싱
           </button>
         </div>
 
@@ -229,44 +229,86 @@ export default function WorkPage() {
             <div className="flex items-start space-x-3 mb-6">
               <Sparkles className="w-6 h-6 text-Primary flex-shrink-0 mt-1" />
               <div>
-                <h2 className="text-2xl font-bold text-black mb-2">Claude Code 자동 파싱</h2>
+                <h2 className="text-2xl font-bold text-black mb-2">AI 업무 파싱</h2>
                 <p className="text-waterloo leading-relaxed">
-                  Claude Code와 작업한 내용을 붙여넣으면 자동으로 업무로 정리됩니다.
+                  Claude에게 아래 프롬프트를 입력하여 업무 정리를 요청하세요.
                   <br />
-                  각 줄이 하나의 업무로 변환되고, 상태와 태그가 자동으로 감지됩니다.
+                  받은 응답을 붙여넣으면 자동으로 업무로 등록됩니다.
                 </p>
               </div>
+            </div>
+
+            {/* Prompt Template */}
+            <div className="mb-6 p-5 bg-Primary/5 rounded-lg border border-Primary/20">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold text-Primary">📋 Claude에게 보낼 프롬프트</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const promptText = `오늘 한 업무를 다음 형식으로 정리해주세요:
+
+제목: [업무 제목]
+설명: [상세 내용]
+카테고리: [development/research/meeting/review/documentation/testing/deployment/planning/other 중 선택]
+우선순위: [low/medium/high/urgent 중 선택]
+상태: [not_started/in_progress/completed/blocked 중 선택]
+태그: [관련 태그들, 쉼표로 구분]
+예상 시간: [숫자 또는 없으면 생략]
+
+---
+
+여러 업무가 있다면 위 형식을 반복해서 나열해주세요.`
+                    navigator.clipboard.writeText(promptText)
+                    setMessage('✅ 프롬프트가 클립보드에 복사되었습니다')
+                    setTimeout(() => setMessage(''), 2000)
+                  }}
+                  className="px-4 py-2 bg-Primary text-white text-xs font-semibold rounded-lg hover:bg-Primary-hover transition-all"
+                >
+                  복사하기
+                </button>
+              </div>
+              <pre className="text-xs text-waterloo whitespace-pre-wrap font-mono bg-white p-4 rounded border border-stroke">
+{`오늘 한 업무를 다음 형식으로 정리해주세요:
+
+제목: [업무 제목]
+설명: [상세 내용]
+카테고리: [development/research/meeting/review/
+          documentation/testing/deployment/planning/other 중 선택]
+우선순위: [low/medium/high/urgent 중 선택]
+상태: [not_started/in_progress/completed/blocked 중 선택]
+태그: [관련 태그들, 쉼표로 구분]
+예상 시간: [숫자 또는 없으면 생략]
+
+---
+
+여러 업무가 있다면 위 형식을 반복해서 나열해주세요.`}
+              </pre>
             </div>
 
             <form onSubmit={handleClaudeSubmit} className="space-y-6">
               {/* Conversation Text */}
               <div>
                 <label className="block text-sm font-semibold text-black mb-2">
-                  Claude Code 대화 내용
+                  Claude 응답 붙여넣기
                 </label>
                 <textarea
                   value={claudeText}
                   onChange={(e) => setClaudeText(e.target.value)}
                   rows={12}
                   className="w-full px-4 py-3 rounded-lg border border-stroke focus:border-Primary focus:ring-2 focus:ring-Primary/20 outline-none transition-all resize-none font-mono text-sm"
-                  placeholder="예시:
-- 대시보드 UI 완료
-- Tailwind CSS 설정 수정
-- API 통신 로직 진행중
-- 인증 문제로 막힘"
+                  placeholder="Claude가 정리한 업무 목록을 여기에 붙여넣으세요..."
                   required
                 />
               </div>
 
               {/* Example Box */}
               <div className="p-4 bg-Secondary/20 rounded-lg border border-Secondary/30">
-                <p className="text-sm text-waterloo mb-2 font-semibold">💡 자동 감지 예시:</p>
+                <p className="text-sm text-waterloo mb-2 font-semibold">💡 사용 방법:</p>
                 <ul className="text-sm text-waterloo space-y-1">
-                  <li>• "완료", "구현" → ✅ 완료 상태</li>
-                  <li>• "진행중", "작업중" → 🔄 진행중 상태</li>
-                  <li>• "막힘", "문제" → 🚫 막힘 상태</li>
-                  <li>• "API", "백엔드" → 🏷️ backend 태그</li>
-                  <li>• "UI", "프론트" → 🏷️ frontend 태그</li>
+                  <li>1. 위의 "복사하기" 버튼으로 프롬프트 복사</li>
+                  <li>2. Claude Code에 프롬프트 붙여넣기 및 업무 설명</li>
+                  <li>3. Claude의 응답을 위 입력창에 붙여넣기</li>
+                  <li>4. "AI 파싱 & 업무 등록" 버튼 클릭</li>
                 </ul>
               </div>
 
@@ -276,7 +318,7 @@ export default function WorkPage() {
                 disabled={loading}
                 className="w-full px-8 py-4 bg-Primary hover:bg-Primary-hover text-white rounded-lg font-semibold transition-all shadow-solid-5 hover:shadow-solid-10 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? '파싱중...' : '자동 파싱 & 업무 등록'}
+                {loading ? '파싱중...' : 'AI 파싱 & 업무 등록'}
               </button>
             </form>
           </div>
