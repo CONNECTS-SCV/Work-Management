@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Users, CheckCircle2, Clock, AlertCircle, Plus, TrendingUp, Calendar, Sparkles } from 'lucide-react'
+import { Users, CheckCircle2, Clock, AlertCircle, Plus, TrendingUp, Calendar, Sparkles, Settings } from 'lucide-react'
 import { workManagementApi } from '@/lib/api'
 import type { WorkEntry, WorkStatus, DailySummary } from '@/lib/types'
 
@@ -86,13 +86,22 @@ export default function DashboardPage() {
               </div>
               <span className="text-2xl font-bold text-black">Work</span>
             </Link>
-            <Link
-              href="/work"
-              className="px-6 py-3 bg-Primary hover:bg-Primary-hover text-white rounded-xl font-semibold transition-all shadow-solid-5 hover:shadow-solid-10 inline-flex items-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>업무 기록</span>
-            </Link>
+            <div className="flex items-center space-x-3">
+              <Link
+                href="/settings"
+                className="p-3 text-waterloo hover:text-Primary hover:bg-Primary/5 rounded-xl transition-all"
+                title="설정"
+              >
+                <Settings className="w-5 h-5" />
+              </Link>
+              <Link
+                href="/work"
+                className="px-6 py-3 bg-Primary hover:bg-Primary-hover text-white rounded-xl font-semibold transition-all shadow-solid-5 hover:shadow-solid-10 inline-flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>업무 기록</span>
+              </Link>
+            </div>
           </div>
         </div>
       </header>

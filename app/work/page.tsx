@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Plus, Sparkles, CheckCircle2, Clock, AlertCircle, Circle } from 'lucide-react'
 import { workManagementApi } from '@/lib/api'
 import type { WorkStatus, WorkPriority, WorkCategory } from '@/lib/types'
+import { parseWorkWithOpenAI } from '@/lib/openai'
 
 export default function WorkPage() {
   const [activeTab, setActiveTab] = useState<'quick' | 'claude'>('quick')
@@ -52,18 +53,33 @@ export default function WorkPage() {
     setLoading(true)
 
     try {
-      const result = await workManagementApi.workEntries.fromClaudeSummary({
-        team_name: TEAM_NAME,
-        username: USERNAME,
-        summary: claudeText,
-      })
+      // Parse work items using OpenAI
+      const workItems = await parseWorkWithOpenAI(claudeText)
 
-      setMessage(`✅ ${result.length}개 업무가 자동 등록되었습니다!`)
+      // Create work entries for each parsed item
+      const createdEntries = await Promise.all(
+        workItems.map(item =>
+          workManagementApi.workEntries.create({
+            team_name: TEAM_NAME,
+            username: USERNAME,
+            title: item.title,
+            description: item.description,
+            raw_input: claudeText,
+            status: (item.status || 'not_started') as WorkStatus,
+            category: (item.category || 'development') as WorkCategory,
+            priority: (item.priority || 'medium') as WorkPriority,
+            tags: item.tags || [],
+            estimated_hours: item.estimated_hours,
+          })
+        )
+      )
+
+      setMessage(`✅ ${createdEntries.length}개 업무가 자동 등록되었습니다!`)
       setClaudeText('')
       setTimeout(() => setMessage(''), 3000)
     } catch (error: any) {
-      console.error('Failed to parse Claude text:', error)
-      setMessage(`❌ 파싱 실패: ${error.message || '서버 연결을 확인해주세요'}`)
+      console.error('Failed to parse with OpenAI:', error)
+      setMessage(`❌ 파싱 실패: ${error.message || 'OpenAI API 키를 확인해주세요'}`)
     } finally {
       setLoading(false)
     }
