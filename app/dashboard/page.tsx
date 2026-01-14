@@ -68,10 +68,10 @@ export default function DashboardPage() {
   }
 
   const stats = {
-    completed: summary?.statistics.completed_items || 0,
-    in_progress: summary?.statistics.in_progress_items || 0,
-    blocked: summary?.statistics.blocked_items || 0,
-    not_started: (summary?.statistics.total_work_items || 0) - (summary?.statistics.completed_items || 0) - (summary?.statistics.in_progress_items || 0) - (summary?.statistics.blocked_items || 0)
+    completed: summary?.statistics?.completed_items || 0,
+    in_progress: summary?.statistics?.in_progress_items || 0,
+    blocked: summary?.statistics?.blocked_items || 0,
+    not_started: (summary?.statistics?.total_work_items || 0) - (summary?.statistics?.completed_items || 0) - (summary?.statistics?.in_progress_items || 0) - (summary?.statistics?.blocked_items || 0)
   }
 
   return (
