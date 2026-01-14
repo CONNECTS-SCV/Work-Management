@@ -2,8 +2,18 @@
 import OpenAI from 'openai'
 
 export function getOpenAIClient(): OpenAI | null {
+  // Try environment variable first
+  const envApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
+  if (envApiKey) {
+    return new OpenAI({
+      apiKey: envApiKey,
+      dangerouslyAllowBrowser: true,
+    })
+  }
+
+  // Fall back to localStorage (client-side only)
   if (typeof window === 'undefined') {
-    return null // Don't initialize on server side
+    return null
   }
 
   const apiKey = localStorage.getItem('openai_api_key')
@@ -13,7 +23,7 @@ export function getOpenAIClient(): OpenAI | null {
 
   return new OpenAI({
     apiKey,
-    dangerouslyAllowBrowser: true, // Required for client-side usage
+    dangerouslyAllowBrowser: true,
   })
 }
 
@@ -24,6 +34,13 @@ export function setOpenAIKey(apiKey: string) {
 }
 
 export function getOpenAIKey(): string | null {
+  // Check environment variable first
+  const envApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
+  if (envApiKey) {
+    return envApiKey
+  }
+
+  // Fall back to localStorage
   if (typeof window !== 'undefined') {
     return localStorage.getItem('openai_api_key')
   }
