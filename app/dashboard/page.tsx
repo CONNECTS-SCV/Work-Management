@@ -8,6 +8,7 @@ import type { WorkEntry, WorkStatus, DailySummary } from '@/lib/types'
 import { authService } from '@/lib/auth'
 import LoginModal from '@/components/LoginModal'
 import WorkDetailModal from '@/components/WorkDetailModal'
+import { generateTeamInsights, type TeamInsight } from '@/lib/ai-insights'
 
 type ViewMode = 'personal' | 'team'
 type FilterUser = 'all' | string
@@ -25,6 +26,8 @@ export default function DashboardPage() {
   const [currentUser, setCurrentUser] = useState<string | null>(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<WorkEntry | null>(null)
+  const [teamInsight, setTeamInsight] = useState<TeamInsight | null>(null)
+  const [insightLoading, setInsightLoading] = useState(false)
 
   const TEAM_NAME = 'curieus'
 
@@ -37,6 +40,18 @@ export default function DashboardPage() {
       setShowLoginModal(true)
     }
   }, [])
+
+  const generateInsights = async (entries: WorkEntry[], dailySummary: DailySummary | null) => {
+    setInsightLoading(true)
+    try {
+      const insights = await generateTeamInsights(entries, dailySummary)
+      setTeamInsight(insights)
+    } catch (error) {
+      console.error('Failed to generate insights:', error)
+    } finally {
+      setInsightLoading(false)
+    }
+  }
 
   const loadData = async () => {
     if (!currentUser) {
@@ -75,6 +90,11 @@ export default function DashboardPage() {
           setWorkEntries(entries.filter(e => e.username === filterUser))
         }
         setSummary(dailySummary)
+
+        // Generate AI insights for team view
+        if (entries.length > 0) {
+          generateInsights(entries, dailySummary)
+        }
       }
     } catch (err: any) {
       console.error('Failed to load data:', err)
@@ -369,6 +389,123 @@ export default function DashboardPage() {
             bgColor="bg-Primary"
           />
         </div>
+
+        {/* AI Insights (팀 뷰일 때만) */}
+        {viewMode === 'team' && teamInsight && (
+          <div className="mb-12 bg-gradient-to-br from-Primary/5 to-Secondary/10 rounded-2xl border border-Primary/20 p-8 shadow-solid-3">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-Primary rounded-xl flex items-center justify-center shadow-solid-5">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-black">AI 팀 인사이트</h2>
+                  <p className="text-sm text-waterloo">OpenAI가 분석한 팀 현황</p>
+                </div>
+              </div>
+              <div className={`px-4 py-2 rounded-full text-xs font-bold ${
+                teamInsight.momentum === 'high' ? 'bg-meta/20 text-meta' :
+                teamInsight.momentum === 'medium' ? 'bg-mainblue/20 text-mainblue' :
+                'bg-red-100 text-red-600'
+              }`}>
+                {teamInsight.momentum === 'high' ? '🚀 높은 모멘텀' :
+                 teamInsight.momentum === 'medium' ? '⚡ 보통 모멘텀' :
+                 '🐌 느린 모멘텀'}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {/* Summary */}
+              <div className="bg-white/60 rounded-xl p-5">
+                <h3 className="font-bold text-black mb-2">📊 전체 요약</h3>
+                <p className="text-waterloo leading-relaxed">{teamInsight.summary}</p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Key Progress */}
+                {teamInsight.keyProgress.length > 0 && (
+                  <div className="bg-white/60 rounded-xl p-5">
+                    <h3 className="font-bold text-black mb-3 flex items-center space-x-2">
+                      <span>✅</span>
+                      <span>주요 진행사항</span>
+                    </h3>
+                    <ul className="space-y-2">
+                      {teamInsight.keyProgress.map((item, idx) => (
+                        <li key={idx} className="text-sm text-waterloo flex items-start space-x-2">
+                          <span className="text-meta mt-0.5">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Next Actions */}
+                {teamInsight.nextActions.length > 0 && (
+                  <div className="bg-white/60 rounded-xl p-5">
+                    <h3 className="font-bold text-black mb-3 flex items-center space-x-2">
+                      <span>🎯</span>
+                      <span>다음 액션</span>
+                    </h3>
+                    <ul className="space-y-2">
+                      {teamInsight.nextActions.map((item, idx) => (
+                        <li key={idx} className="text-sm text-waterloo flex items-start space-x-2">
+                          <span className="text-Primary mt-0.5">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Blockers */}
+                {teamInsight.blockers.length > 0 && (
+                  <div className="bg-white/60 rounded-xl p-5">
+                    <h3 className="font-bold text-black mb-3 flex items-center space-x-2">
+                      <span>🚧</span>
+                      <span>블로킹 요인</span>
+                    </h3>
+                    <ul className="space-y-2">
+                      {teamInsight.blockers.map((item, idx) => (
+                        <li key={idx} className="text-sm text-red-600 flex items-start space-x-2">
+                          <span className="mt-0.5">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Risks */}
+                {teamInsight.risks.length > 0 && (
+                  <div className="bg-white/60 rounded-xl p-5">
+                    <h3 className="font-bold text-black mb-3 flex items-center space-x-2">
+                      <span>⚠️</span>
+                      <span>주의사항</span>
+                    </h3>
+                    <ul className="space-y-2">
+                      {teamInsight.risks.map((item, idx) => (
+                        <li key={idx} className="text-sm text-waterloo flex items-start space-x-2">
+                          <span className="text-red-500 mt-0.5">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'team' && insightLoading && (
+          <div className="mb-12 bg-Primary/5 rounded-2xl border border-Primary/20 p-8">
+            <div className="flex items-center justify-center space-x-3">
+              <Sparkles className="w-6 h-6 text-Primary animate-pulse" />
+              <p className="text-waterloo font-medium">AI가 팀 인사이트를 생성하는 중...</p>
+            </div>
+          </div>
+        )}
 
         {/* Work List & Sidebar */}
         <div className="grid lg:grid-cols-3 gap-8">
