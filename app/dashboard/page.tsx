@@ -4,22 +4,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Users, CheckCircle2, Clock, AlertCircle, Plus, TrendingUp, Calendar, Sparkles } from 'lucide-react'
 import { workManagementApi } from '@/lib/api'
-
-interface WorkEntry {
-  id: string
-  username: string
-  title: string
-  description: string
-  status: string
-  tags: string[]
-  work_date: string
-  created_at: string
-  updated_at: string
-}
+import type { WorkEntry, WorkStatus, DailySummary } from '@/lib/types'
 
 export default function DashboardPage() {
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [summary, setSummary] = useState<DailySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [error, setError] = useState<string | null>(null)
@@ -58,7 +47,7 @@ export default function DashboardPage() {
   const handleStatusChange = async (entryId: string, newStatus: string) => {
     try {
       await workManagementApi.workEntries.update(TEAM_NAME, USERNAME, entryId, {
-        status: newStatus
+        status: newStatus as WorkStatus
       })
       loadData() // 새로고침
     } catch (error) {
@@ -78,7 +67,12 @@ export default function DashboardPage() {
     )
   }
 
-  const stats = summary?.by_status || { completed: 0, in_progress: 0, blocked: 0, todo: 0 }
+  const stats = {
+    completed: summary?.statistics.completed_items || 0,
+    in_progress: summary?.statistics.in_progress_items || 0,
+    blocked: summary?.statistics.blocked_items || 0,
+    not_started: (summary?.statistics.total_work_items || 0) - (summary?.statistics.completed_items || 0) - (summary?.statistics.in_progress_items || 0) - (summary?.statistics.blocked_items || 0)
+  }
 
   return (
     <div className="min-h-screen bg-Background">
@@ -224,11 +218,11 @@ export default function DashboardPage() {
             </div>
 
             {/* Team Progress */}
-            {summary && summary.by_user && Object.keys(summary.by_user).length > 0 && (
+            {summary && summary.members_summary && Object.keys(summary.members_summary).length > 0 && (
               <div className="bg-white rounded-2xl border border-stroke p-6 shadow-solid-2">
                 <h3 className="font-bold text-black mb-5 text-lg">팀 진행상황</h3>
                 <div className="space-y-5">
-                  {Object.entries(summary.by_user).map(([username, userStats]: [string, any]) => (
+                  {Object.entries(summary.members_summary).map(([username, userStats]) => (
                     <div key={username}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
@@ -239,19 +233,19 @@ export default function DashboardPage() {
                           </div>
                           <span className="font-semibold text-black">{username}</span>
                         </div>
-                        <span className="text-sm text-waterloo font-medium">{userStats.total}개</span>
+                        <span className="text-sm text-waterloo font-medium">{userStats.work_items}개</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="flex-1 h-2.5 bg-Background rounded-full overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-meta to-Primary rounded-full transition-all"
                             style={{
-                              width: `${(userStats.completed / userStats.total) * 100}%`
+                              width: `${userStats.work_items > 0 ? (userStats.completed / userStats.work_items) * 100 : 0}%`
                             }}
                           />
                         </div>
                         <span className="text-sm text-Primary font-bold">
-                          {Math.round((userStats.completed / userStats.total) * 100)}%
+                          {userStats.work_items > 0 ? Math.round((userStats.completed / userStats.work_items) * 100) : 0}%
                         </span>
                       </div>
                     </div>
@@ -310,10 +304,10 @@ function WorkEntryCard({
             ${entry.status === 'completed' ? 'bg-meta/10 border-meta text-meta' : ''}
             ${entry.status === 'in_progress' ? 'bg-mainblue/10 border-mainblue text-mainblue' : ''}
             ${entry.status === 'blocked' ? 'bg-red-50 border-red-500 text-red-500' : ''}
-            ${entry.status === 'todo' ? 'bg-manatee/10 border-manatee text-manatee' : ''}
+            ${entry.status === 'not_started' ? 'bg-manatee/10 border-manatee text-manatee' : ''}
           `}
         >
-          <option value="todo">할 일</option>
+          <option value="not_started">할 일</option>
           <option value="in_progress">진행중</option>
           <option value="completed">완료</option>
           <option value="blocked">막힘</option>

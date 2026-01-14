@@ -51,6 +51,8 @@ export interface WorkEntry {
   blockers: string[]
   related_work_ids: string[]
   agent_summary?: string
+  username: string
+  work_date: string
   created_at: string
   updated_at: string
 }

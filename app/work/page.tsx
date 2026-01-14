@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Plus, Sparkles, CheckCircle2, Clock, AlertCircle, Circle } from 'lucide-react'
 import { workManagementApi } from '@/lib/api'
+import type { WorkStatus, WorkPriority, WorkCategory } from '@/lib/types'
 
 export default function WorkPage() {
   const [activeTab, setActiveTab] = useState<'quick' | 'claude'>('quick')
@@ -27,9 +28,10 @@ export default function WorkPage() {
         username: USERNAME,
         title,
         description,
-        status,
-        category: 'development',
-        priority: 'normal',
+        raw_input: `${title}\n${description}`,
+        status: status as WorkStatus,
+        category: 'development' as WorkCategory,
+        priority: 'medium' as WorkPriority,
         tags: [],
       })
 
@@ -53,7 +55,7 @@ export default function WorkPage() {
       const result = await workManagementApi.workEntries.fromClaudeSummary({
         team_name: TEAM_NAME,
         username: USERNAME,
-        conversation_summary: claudeText,
+        summary: claudeText,
       })
 
       setMessage(`✅ ${result.length}개 업무가 자동 등록되었습니다!`)
