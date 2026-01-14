@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Users, CheckCircle2, Clock, AlertCircle, Plus, TrendingUp, Calendar, Sparkles, User, Trash2 } from 'lucide-react'
+import { Users, CheckCircle2, Clock, AlertCircle, Plus, TrendingUp, Calendar, Sparkles, User, Trash2, LogOut, LayoutDashboard, CalendarClock, Columns3 } from 'lucide-react'
 import { workManagementApi } from '@/lib/api'
 import type { WorkEntry, WorkStatus, DailySummary } from '@/lib/types'
+import { authService } from '@/lib/auth'
+import LoginModal from '@/components/LoginModal'
+import WorkDetailModal from '@/components/WorkDetailModal'
 
 type ViewMode = 'personal' | 'team'
 type FilterUser = 'all' | string
@@ -19,15 +22,32 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('personal')
   const [filterUser, setFilterUser] = useState<FilterUser>('all')
   const [users, setUsers] = useState<string[]>([])
+  const [currentUser, setCurrentUser] = useState<string | null>(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [selectedEntry, setSelectedEntry] = useState<WorkEntry | null>(null)
 
-  const TEAM_NAME = 'curieus' // 기본 팀 이름
-  const USERNAME = '차성욱' // TODO: 실제 로그인 사용자로 변경
+  const TEAM_NAME = 'curieus'
 
+  // 사용자 인증 체크
   useEffect(() => {
-    loadData()
-  }, [selectedDate, viewMode])
+    const user = authService.getCurrentUser()
+    if (user) {
+      setCurrentUser(user.username)
+    } else {
+      setShowLoginModal(true)
+    }
+  }, [])
+
+  // currentUser 변경 시 데이터 로드
+  useEffect(() => {
+    if (currentUser) {
+      loadData()
+    }
+  }, [selectedDate, viewMode, currentUser])
 
   const loadData = async () => {
+    if (!currentUser) return
+
     try {
       setLoading(true)
       setError(null)
@@ -35,7 +55,7 @@ export default function DashboardPage() {
       if (viewMode === 'personal') {
         // 개인 뷰: 내 업무만
         const [entries, dailySummary] = await Promise.all([
-          workManagementApi.workEntries.get(TEAM_NAME, USERNAME, selectedDate),
+          workManagementApi.workEntries.get(TEAM_NAME, currentUser, selectedDate),
           workManagementApi.analysis.dailySummary(TEAM_NAME, selectedDate)
         ])
         setWorkEntries(entries)
@@ -107,6 +127,52 @@ export default function DashboardPage() {
     }
   }
 
+  const handleLogin = (username: string) => {
+    setCurrentUser(username)
+    setShowLoginModal(false)
+  }
+
+  const handleLogout = () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      authService.logout()
+      setCurrentUser(null)
+      setShowLoginModal(true)
+      setWorkEntries([])
+      setSummary(null)
+    }
+  }
+
+  const handleWorkClick = (entry: WorkEntry) => {
+    setSelectedEntry(entry)
+  }
+
+  const handleWorkUpdate = async (id: string, data: Partial<WorkEntry>) => {
+    try {
+      const entry = workEntries.find(e => e.id === id)
+      if (!entry) return
+
+      await workManagementApi.workEntries.update(TEAM_NAME, entry.username, id, data)
+      loadData()
+    } catch (error) {
+      console.error('Failed to update work entry:', error)
+      alert('업무 업데이트에 실패했습니다')
+    }
+  }
+
+  const handleWorkDelete = async (id: string) => {
+    const entry = workEntries.find(e => e.id === id)
+    if (!entry) return
+
+    try {
+      await workManagementApi.workEntries.delete(TEAM_NAME, entry.username, id)
+      setSelectedEntry(null)
+      loadData()
+    } catch (error) {
+      console.error('Failed to delete work entry:', error)
+      alert('업무 삭제에 실패했습니다')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-Background flex items-center justify-center">
@@ -131,13 +197,53 @@ export default function DashboardPage() {
       <header className="bg-white border-b border-stroke sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="flex items-center justify-between h-20">
-            <Link href="/dashboard" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-Primary rounded-xl flex items-center justify-center shadow-solid-5">
-                <TrendingUp className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-black">Work</span>
-            </Link>
+            <div className="flex items-center space-x-8">
+              <Link href="/dashboard" className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-Primary rounded-xl flex items-center justify-center shadow-solid-5">
+                  <TrendingUp className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-2xl font-bold text-black">Work</span>
+              </Link>
+
+              {/* Navigation Menu */}
+              <nav className="hidden md:flex items-center space-x-2">
+                <Link
+                  href="/dashboard"
+                  className="px-4 py-2 bg-Primary/10 text-Primary rounded-lg font-semibold transition-all flex items-center space-x-2"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>대시보드</span>
+                </Link>
+                <Link
+                  href="/timeline"
+                  className="px-4 py-2 text-waterloo hover:bg-Background rounded-lg font-semibold transition-all flex items-center space-x-2"
+                >
+                  <CalendarClock className="w-4 h-4" />
+                  <span>타임라인</span>
+                </Link>
+                <Link
+                  href="/kanban"
+                  className="px-4 py-2 text-waterloo hover:bg-Background rounded-lg font-semibold transition-all flex items-center space-x-2"
+                >
+                  <Columns3 className="w-4 h-4" />
+                  <span>칸반</span>
+                </Link>
+              </nav>
+            </div>
+
             <div className="flex items-center space-x-3">
+              {/* Current User Info */}
+              {currentUser && (
+                <div className="flex items-center space-x-3 px-4 py-2 bg-Background rounded-xl">
+                  <div className="w-8 h-8 bg-Primary rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-white">
+                      {currentUser.charAt(0)}
+                    </span>
+                  </div>
+                  <span className="font-semibold text-black">{currentUser}</span>
+                </div>
+              )}
+
               <Link
                 href="/work"
                 className="px-6 py-3 bg-Primary hover:bg-Primary-hover text-white rounded-xl font-semibold transition-all shadow-solid-5 hover:shadow-solid-10 inline-flex items-center space-x-2"
@@ -145,6 +251,17 @@ export default function DashboardPage() {
                 <Plus className="w-4 h-4" />
                 <span>업무 기록</span>
               </Link>
+
+              {/* Logout Button */}
+              {currentUser && (
+                <button
+                  onClick={handleLogout}
+                  className="p-3 text-waterloo hover:bg-Background hover:text-red-500 rounded-xl transition-all"
+                  title="로그아웃"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -288,6 +405,7 @@ export default function DashboardPage() {
                       entry={entry}
                       onStatusChange={handleStatusChange}
                       onDelete={handleDelete}
+                      onClick={handleWorkClick}
                       showUsername={viewMode === 'team'}
                     />
                   ))}
@@ -357,6 +475,19 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Login Modal */}
+      {showLoginModal && <LoginModal onLogin={handleLogin} />}
+
+      {/* Work Detail Modal */}
+      {selectedEntry && (
+        <WorkDetailModal
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+          onUpdate={handleWorkUpdate}
+          onDelete={handleWorkDelete}
+        />
+      )}
     </div>
   )
 }
@@ -391,15 +522,26 @@ function WorkEntryCard({
   entry,
   onStatusChange,
   onDelete,
+  onClick,
   showUsername = false
 }: {
   entry: WorkEntry
   onStatusChange: (id: string, status: string, username: string) => void
   onDelete: (id: string, username: string) => void
+  onClick: (entry: WorkEntry) => void
   showUsername?: boolean
 }) {
   return (
-    <div className="p-5 bg-Background rounded-xl border border-stroke hover:border-Primary/30 transition-all">
+    <div
+      className="p-5 bg-Background rounded-xl border border-stroke hover:border-Primary/30 transition-all cursor-pointer"
+      onClick={(e) => {
+        // 상태 변경과 삭제 버튼 클릭 시에는 모달 열지 않기
+        if ((e.target as HTMLElement).closest('select, button')) {
+          return
+        }
+        onClick(entry)
+      }}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           {showUsername && entry.username && (
