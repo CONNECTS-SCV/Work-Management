@@ -40,15 +40,11 @@ export default function KanbanPage() {
     }
   }, [])
 
-  // currentUser 변경 시 데이터 로드
-  useEffect(() => {
-    if (currentUser) {
-      loadData()
-    }
-  }, [selectedDate, currentUser])
-
   const loadData = async () => {
-    if (!currentUser) return
+    if (!currentUser) {
+      setLoading(false)
+      return
+    }
 
     try {
       setLoading(true)
@@ -63,6 +59,12 @@ export default function KanbanPage() {
       setLoading(false)
     }
   }
+
+  // currentUser 변경 시 데이터 로드
+  useEffect(() => {
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, currentUser])
 
   const handleLogin = (username: string) => {
     setCurrentUser(username)

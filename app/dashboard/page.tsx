@@ -38,15 +38,11 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // currentUser 변경 시 데이터 로드
-  useEffect(() => {
-    if (currentUser) {
-      loadData()
-    }
-  }, [selectedDate, viewMode, currentUser])
-
   const loadData = async () => {
-    if (!currentUser) return
+    if (!currentUser) {
+      setLoading(false)
+      return
+    }
 
     try {
       setLoading(true)
@@ -89,6 +85,12 @@ export default function DashboardPage() {
       setLoading(false)
     }
   }
+
+  // currentUser 변경 시 데이터 로드
+  useEffect(() => {
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, viewMode, currentUser])
 
   // 필터 변경 시 재필터링
   useEffect(() => {
