@@ -88,13 +88,6 @@ export default function DashboardPage() {
             </Link>
             <div className="flex items-center space-x-3">
               <Link
-                href="/settings"
-                className="p-3 text-waterloo hover:text-Primary hover:bg-Primary/5 rounded-xl transition-all"
-                title="설정"
-              >
-                <Settings className="w-5 h-5" />
-              </Link>
-              <Link
                 href="/work"
                 className="px-6 py-3 bg-Primary hover:bg-Primary-hover text-white rounded-xl font-semibold transition-all shadow-solid-5 hover:shadow-solid-10 inline-flex items-center space-x-2"
               >
