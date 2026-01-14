@@ -102,6 +102,10 @@ export const workManagementApi = {
       )
       return response.data
     },
+    getAll: async (teamName: string, date: string): Promise<WorkEntry[]> => {
+      const response = await api.get(`/teams/${teamName}/work-entries/${date}`)
+      return response.data
+    },
     update: async (
       teamName: string,
       username: string,

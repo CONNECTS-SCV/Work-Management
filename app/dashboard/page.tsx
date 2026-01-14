@@ -2,41 +2,67 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Users, CheckCircle2, Clock, AlertCircle, Plus, TrendingUp, Calendar, Sparkles, Settings } from 'lucide-react'
+import { Users, CheckCircle2, Clock, AlertCircle, Plus, TrendingUp, Calendar, Sparkles, User, Trash2 } from 'lucide-react'
 import { workManagementApi } from '@/lib/api'
 import type { WorkEntry, WorkStatus, DailySummary } from '@/lib/types'
 
+type ViewMode = 'personal' | 'team'
+type FilterUser = 'all' | string
+
 export default function DashboardPage() {
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>([])
+  const [allEntries, setAllEntries] = useState<WorkEntry[]>([])
   const [summary, setSummary] = useState<DailySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [error, setError] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('personal')
+  const [filterUser, setFilterUser] = useState<FilterUser>('all')
+  const [users, setUsers] = useState<string[]>([])
 
   const TEAM_NAME = 'curieus' // 기본 팀 이름
   const USERNAME = '차성욱' // TODO: 실제 로그인 사용자로 변경
 
   useEffect(() => {
     loadData()
-  }, [selectedDate])
+  }, [selectedDate, viewMode])
 
   const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // curieus.net API로 요청
-      const [entries, dailySummary] = await Promise.all([
-        workManagementApi.workEntries.get(TEAM_NAME, USERNAME, selectedDate),
-        workManagementApi.analysis.dailySummary(TEAM_NAME, selectedDate)
-      ])
+      if (viewMode === 'personal') {
+        // 개인 뷰: 내 업무만
+        const [entries, dailySummary] = await Promise.all([
+          workManagementApi.workEntries.get(TEAM_NAME, USERNAME, selectedDate),
+          workManagementApi.analysis.dailySummary(TEAM_NAME, selectedDate)
+        ])
+        setWorkEntries(entries)
+        setSummary(dailySummary)
+      } else {
+        // 팀 뷰: 전체 업무
+        const [entries, dailySummary] = await Promise.all([
+          workManagementApi.workEntries.getAll(TEAM_NAME, selectedDate),
+          workManagementApi.analysis.dailySummary(TEAM_NAME, selectedDate)
+        ])
+        setAllEntries(entries)
 
-      setWorkEntries(entries)
-      setSummary(dailySummary)
+        // 사용자 목록 추출
+        const uniqueUsers = Array.from(new Set(entries.map(e => e.username)))
+        setUsers(uniqueUsers)
+
+        // 필터 적용
+        if (filterUser === 'all') {
+          setWorkEntries(entries)
+        } else {
+          setWorkEntries(entries.filter(e => e.username === filterUser))
+        }
+        setSummary(dailySummary)
+      }
     } catch (err: any) {
       console.error('Failed to load data:', err)
       setError(err.message || '데이터를 불러오는데 실패했습니다')
-      // 에러 시 빈 데이터 표시
       setWorkEntries([])
       setSummary(null)
     } finally {
@@ -44,15 +70,40 @@ export default function DashboardPage() {
     }
   }
 
-  const handleStatusChange = async (entryId: string, newStatus: string) => {
+  // 필터 변경 시 재필터링
+  useEffect(() => {
+    if (viewMode === 'team') {
+      if (filterUser === 'all') {
+        setWorkEntries(allEntries)
+      } else {
+        setWorkEntries(allEntries.filter(e => e.username === filterUser))
+      }
+    }
+  }, [filterUser, viewMode, allEntries])
+
+  const handleStatusChange = async (entryId: string, newStatus: string, username: string) => {
     try {
-      await workManagementApi.workEntries.update(TEAM_NAME, USERNAME, entryId, {
+      await workManagementApi.workEntries.update(TEAM_NAME, username, entryId, {
         status: newStatus as WorkStatus
       })
       loadData() // 새로고침
     } catch (error) {
       console.error('Failed to update status:', error)
       alert('상태 업데이트에 실패했습니다')
+    }
+  }
+
+  const handleDelete = async (entryId: string, username: string) => {
+    if (!confirm('정말 이 업무를 삭제하시겠습니까?')) {
+      return
+    }
+
+    try {
+      await workManagementApi.workEntries.delete(TEAM_NAME, username, entryId)
+      loadData() // 새로고침
+    } catch (error) {
+      console.error('Failed to delete work entry:', error)
+      alert('업무 삭제에 실패했습니다')
     }
   }
 
@@ -107,14 +158,60 @@ export default function DashboardPage() {
             <h1 className="text-4xl font-bold text-black mb-2">대시보드</h1>
             <p className="text-waterloo text-lg">팀의 업무 현황을 한눈에 확인하세요</p>
           </div>
-          <div className="flex items-center space-x-3 bg-white px-5 py-3 rounded-xl border border-stroke shadow-solid-2">
-            <Calendar className="w-5 h-5 text-Primary" />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="outline-none font-medium text-black cursor-pointer"
-            />
+          <div className="flex items-center space-x-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-white rounded-xl border border-stroke shadow-solid-2 p-1">
+              <button
+                onClick={() => {
+                  setViewMode('personal')
+                  setFilterUser('all')
+                }}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all flex items-center space-x-2 ${
+                  viewMode === 'personal'
+                    ? 'bg-Primary text-white shadow-solid-5'
+                    : 'text-waterloo hover:text-black'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>내 업무</span>
+              </button>
+              <button
+                onClick={() => setViewMode('team')}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all flex items-center space-x-2 ${
+                  viewMode === 'team'
+                    ? 'bg-Primary text-white shadow-solid-5'
+                    : 'text-waterloo hover:text-black'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>팀 전체</span>
+              </button>
+            </div>
+
+            {/* User Filter (팀 뷰일 때만) */}
+            {viewMode === 'team' && users.length > 0 && (
+              <select
+                value={filterUser}
+                onChange={(e) => setFilterUser(e.target.value)}
+                className="px-4 py-2.5 bg-white rounded-xl border border-stroke shadow-solid-2 font-semibold text-sm outline-none cursor-pointer hover:border-Primary/30 transition-all"
+              >
+                <option value="all">전체 팀원 ({users.length}명)</option>
+                {users.map(user => (
+                  <option key={user} value={user}>{user}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Date Picker */}
+            <div className="flex items-center space-x-3 bg-white px-5 py-3 rounded-xl border border-stroke shadow-solid-2">
+              <Calendar className="w-5 h-5 text-Primary" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="outline-none font-medium text-black cursor-pointer"
+              />
+            </div>
           </div>
         </div>
 
@@ -190,6 +287,8 @@ export default function DashboardPage() {
                       key={entry.id}
                       entry={entry}
                       onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                      showUsername={viewMode === 'team'}
                     />
                   ))}
                 </div>
@@ -290,30 +389,53 @@ function StatCard({
 
 function WorkEntryCard({
   entry,
-  onStatusChange
+  onStatusChange,
+  onDelete,
+  showUsername = false
 }: {
   entry: WorkEntry
-  onStatusChange: (id: string, status: string) => void
+  onStatusChange: (id: string, status: string, username: string) => void
+  onDelete: (id: string, username: string) => void
+  showUsername?: boolean
 }) {
   return (
     <div className="p-5 bg-Background rounded-xl border border-stroke hover:border-Primary/30 transition-all">
       <div className="flex items-start justify-between mb-3">
-        <h3 className="font-bold text-black flex-1 text-lg">{entry.title}</h3>
-        <select
-          value={entry.status}
-          onChange={(e) => onStatusChange(entry.id, e.target.value)}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 outline-none cursor-pointer transition-colors
-            ${entry.status === 'completed' ? 'bg-meta/10 border-meta text-meta' : ''}
-            ${entry.status === 'in_progress' ? 'bg-mainblue/10 border-mainblue text-mainblue' : ''}
-            ${entry.status === 'blocked' ? 'bg-red-50 border-red-500 text-red-500' : ''}
-            ${entry.status === 'not_started' ? 'bg-manatee/10 border-manatee text-manatee' : ''}
-          `}
-        >
-          <option value="not_started">할 일</option>
-          <option value="in_progress">진행중</option>
-          <option value="completed">완료</option>
-          <option value="blocked">막힘</option>
-        </select>
+        <div className="flex-1">
+          {showUsername && entry.username && (
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="w-6 h-6 bg-Primary/10 rounded-full flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-Primary" />
+              </div>
+              <span className="text-sm font-semibold text-Primary">{entry.username}</span>
+            </div>
+          )}
+          <h3 className="font-bold text-black text-lg">{entry.title}</h3>
+        </div>
+        <div className="flex items-center space-x-2 ml-4">
+          <select
+            value={entry.status}
+            onChange={(e) => onStatusChange(entry.id, e.target.value, entry.username)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 outline-none cursor-pointer transition-colors
+              ${entry.status === 'completed' ? 'bg-meta/10 border-meta text-meta' : ''}
+              ${entry.status === 'in_progress' ? 'bg-mainblue/10 border-mainblue text-mainblue' : ''}
+              ${entry.status === 'blocked' ? 'bg-red-50 border-red-500 text-red-500' : ''}
+              ${entry.status === 'not_started' ? 'bg-manatee/10 border-manatee text-manatee' : ''}
+            `}
+          >
+            <option value="not_started">할 일</option>
+            <option value="in_progress">진행중</option>
+            <option value="completed">완료</option>
+            <option value="blocked">막힘</option>
+          </select>
+          <button
+            onClick={() => onDelete(entry.id, entry.username)}
+            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            title="삭제"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {entry.description && (
